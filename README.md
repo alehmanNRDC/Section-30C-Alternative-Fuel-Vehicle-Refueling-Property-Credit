@@ -1,14 +1,14 @@
 # EV Tax Credit Flag Script
 
-This script identifies adjacent low-population census tracts that qualify for the EV Tax Credit program, helping to highlight how adjacent census tracts can be identified for program eligibility quickly and effectively. This script performs the following:
+This script identifies adjacent low-population census tracts that qualify for the [tax Credit ], helping to highlight how adjacent census tracts can be identified for program eligibility quickly and effectively. This script performs the following:
 
-1. Pulls census tract data and relevant demographic information.
+1. Pulls census tract population data
 2. Identifies low-population census tracts.
-3. Flags low-income, neighboring tracts through spatial joins and population analysis.
+3. Flags low-income, neighboring tracts with spatial joins
 4. Outputs a CSV file, Eligibility_Flags.csv, with flagged census tracts and Empowerment Zone information.
 
 ## Requirements
-This script should be run in an R environment. To run this script, you need to install the following R packages:
+This script should be run in an R environment. It requires the following R packages:
 
 - quarto
 - sf
