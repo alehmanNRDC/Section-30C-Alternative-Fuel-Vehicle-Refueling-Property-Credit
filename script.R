@@ -1,4 +1,4 @@
-# EV tax credit flag script 
+# Identifying NMTC Low-Population Census Tracts [45D(e)(4)] for Section 30C Alternative Fuel Vehicle Refueling Property Credit
 # updated 6-27-24 by AL
 
 # package upload -----
@@ -30,12 +30,12 @@ pacman::p_load(packages,character.only = T)
 
 
 # upload files ------
-# 30c all tracts file & save everything as a character
+# 30c all tracts (from Treasury/ANL) file & save everything as a character
 # saving as a character is needed to preserve the tract IDs correctly
 DOEcensusTract <- read.csv(here( "30C all tracts.csv"), 
                  colClasses = c("character", "character", "character", "character", "character", "character"))
 
-#upload hud file 
+#upload HUD file 
 hudEmpowermentZones<-st_read(here( "Empowerment_Zones_and_Enterprise_Communities_4155431696566095439.geojson"))%>%
   st_make_valid()# fixes the unclosed polygons 
 
@@ -50,7 +50,7 @@ state_codes <- unique(fips_codes$state_code)[1:51] # a vector containing the uni
 
 # this function that iterates through the FIPS
 # get_act is used on state/county subsets to get population (by tract) 
-populationACS <- map_df(state_codes, function(state_code) { # start with a state/ DC
+populationACS <- map_df(state_codes, function(state_code) { # start with a state/District of Comlumbia
   state <- filter(ctys, STATEFP == state_code) # makes a list of all the counties
   county_codes <- state$COUNTYFP
   get_acs(geography = "tract", 
@@ -61,7 +61,7 @@ populationACS <- map_df(state_codes, function(state_code) { # start with a state
 }) 
 
 
-# join census and treasury info (by tract ID) -----
+# join census and Treasury/ANL info (by tract ID) -----
 populationACS<-populationACS[,c(1,4)] # remove unneeded columns 
 df<-merge(DOEcensusTract,populationACS,by.x="tract", by.y="GEOID", all.x = T)
 
@@ -69,7 +69,7 @@ df<-merge(DOEcensusTract,populationACS,by.x="tract", by.y="GEOID", all.x = T)
 # is pop less than 2k ?
 df$pop_flag <- ifelse(df$estimate < 2000, 1, 0)
 
-# flags: does it touch at least 1 nmtc (low income) ----
+# flags: does it touch at least 1 NMTC (low income) ----
 # A. Perform a spatial self-join to find a list of pairs of all touching tracts
 
 #i. prep for join 
@@ -85,19 +85,19 @@ df<-st_sf(df)
 # iii.  join, resultant df has all the combos of tracts that touch
 listAdjTracts <- st_join(df, lowIncomeTracts, join = st_touches)
 
-# B. count how many nmtc flagged tracts each tract touches 
+# B. count how many NMTC flagged tracts each tract touches 
 # in the pair list, x tract (.x) are the tracts of focus, y tracts (.y) are the touched / neighboring tracts
 # this portion takes ~15 mins to run
 
 
 adjNMTCtotal <- listAdjTracts %>%
   filter(nmtc.y>0)%>% # if y tract is 0, remove (0 means the x tract doesn't touch any low income tracts)
-  group_by(tract.x) %>% # organize results by unique x tracts 
+  group_by(tract.x) %>% # organize results by unique x tracts (avoids double counting)
   summarize(adj_nmtc_flag = sum(nmtc.y)) %>% # counts how many nmtc flagged y tracts each x tract touches 
   ungroup()
 
 
-# hud empowerment zones status by tract -----
+# HUD Empowerment Zones status by tract -----
 hudEmpowermentZones <- st_transform(hudEmpowermentZones, st_crs(adjNMTCtotal)) # get matching crs, prep for join 
 geoJoin<-st_join(adjNMTCtotal, hudEmpowermentZones)
 
@@ -109,13 +109,13 @@ geoJoin1<-geoJoin1[,c(1,7)] # only need to keep tract ID and "type" column from 
 
 
 
-# join NMTC count and empowerment zone info with original, DOE file -----
+# join NMTC count and empowerment zone info with original, ANL file -----
 df <- st_drop_geometry(df)
 geoJoin1 <- st_drop_geometry(geoJoin1)
 adjNMTCtotal <-st_drop_geometry(adjNMTCtotal)
 
 
-adjFlags<- left_join(df, adjNMTCtotal , by = c("tract" = "tract.x")) # add the adj flag to the original 30c listing
+adjFlags<- left_join(df, adjNMTCtotal , by = c("tract" = "tract.x")) # add the adj flag to the original 30C listing
 flags_hud<-left_join(adjFlags, geoJoin1, by = c("tract" = "tract.x")) 
 
 flags_hud <- st_drop_geometry(flags_hud)
